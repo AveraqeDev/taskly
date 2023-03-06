@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PRO
+  FREE
+}
+
+model User {
+  id       String    @id @unique
+  name     String
+  email    String    @unique
+  image    String?
+  role     Role      @default(FREE)
+
+  session  Session[]
+  Key      Key[]
+
+  boards   Board[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String @id @unique
+  user_id        String
+  active_expires BigInt
+  idle_expires   BigInt
+  user           User   @relation(references: [id], fields: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("session")
+}
+
+model Key {
+  id              String  @id @unique
+  hashed_password String?
+  user_id         String
+  primary         Boolean
+  user            User    @relation(references: [id], fields: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("key")
+}
+
+model Board {
+  id     String @id @default(cuid())
+  name   String
+  slug   String @unique
+  color  String?
+  closed Boolean @default(false)
+  public Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  columns Column[]
+  tasks   Task[]
+  tags    Tag[]
+  
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Column {
+  id    String @id @default(cuid())
+  name  String
+  color String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  boardId String
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String
+  color String?
+
+  tasks Task[]
+
+  boardId String
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String @id @default(cuid())
+  title       String
+  description String @db.Text
+  
+  tags     Tag[]
+  subtasks Subtask[]
+
+  boardId  String
+  board    Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  columnId String?
+  column   Column? @relation(fields: [columnId], references: [id], onDelete: SetNull)
+}
+
+model Subtask {
+  id String @id @default(cuid())
+  title String
+  
+  done Boolean @default(false)
+
+  parentTaskId String
+  parentTask   Task   @relation(fields: [parentTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([parentTaskId, title])
+}
